@@ -118,7 +118,8 @@ const Goroutineframe_tag = 14;
 const Pointer_tag = 15;
 const Chan_tag = 16;
 const WaitGroup_tag = 17;
-const Internal_tag = 18;
+const Mutex_tag = 18;
+const Internal_tag = 19;
 // Record<string, tuple(number, string)> where the key is the hash of the string
 // and the value is a tuple of the address of the string and the string itself
 let stringPool = {}; // ADDED CHANGE
@@ -267,7 +268,6 @@ const heap_add_Elem_to_Queue = (queue_address, number) => {
     //display(number, "number: ")
     //display(el_address + 2, "eladdress: ")
     if (heap_get(queue_address + 1) == -1) {
-        //display("hi2")
         heap_set(queue_address + 1, el_address);
     }
     else {
@@ -276,35 +276,6 @@ const heap_add_Elem_to_Queue = (queue_address, number) => {
     }
     heap_set(queue_address + 2, el_address);
 };
-/*
-const heap_rem_Elem_from_Queue = (queue_address, number) => {
-    var el_address1 = heap_get(queue_address+1)
-    if(el_address1 === -1) return false;
-    if(heap_get(el_address1+2) === number){
-        const next_address =  heap_get(el_address1+1);
-        heap_set(queue_address+1, next_address);
-        if(next_address === -1) {
-            heap_set(queue_address+2, -1);
-        }
-        return true;
-    }
-    var el_address2 = heap_get(el_address1+1)
-
-    while(el_address2 != -1 && heap_get(el_address2+2) != number){
-        el_address1 = el_address2;
-        el_address2 = heap_get(el_address2+1);
-    }
-    if(heap_get(el_address2+2) == number) {
-        const next_address =  heap_get(el_address2+1);
-        heap_set(el_address1+1, next_address);
-        if(next_address === -1){
-            heap_set(queue_address+2, el_address1);
-        }
-        return true
-    }
-    return false;
-}
-*/
 const heap_pop_Elem_from_Queue = (queue_address) => {
     var el_address = heap_get(queue_address + 1);
     if (el_address === -1)
@@ -319,38 +290,6 @@ const heap_pop_Elem_from_Queue = (queue_address) => {
     return heap_get(el_address + 2);
 };
 const heap_isEmpty_Queue = (queue_address) => (heap_get(queue_address + 1) === -1);
-/*
-// unbuffered channel
-// [1 byte tag, 4 bytes unused,
-//  2 bytes #children, 1 byte unused]
-// followed by the address of the buffer element and the id of the sender that put the element in the buffer.
-const heap_allocate_Unbufchan = () => {
-const address = heap_allocate(Unbufchan_tag, 3);
-heap_set(address + 1, Unassigned);
-heap_set(address + 2, -1);
-return address;
-}
-
-const heap_get_Unbufchan_element = (address) => heap_get_child(address, 0);
-
-const heap_get_Unbufchan_senderid = (address) => heap_get_child(address, 1);
-
-const heap_set_Unbufchan_element = (address, el_address, id) => {
-heap_set(address + 1, el_address);
-heap_set(address + 2, id);
-}
-
-const heap_Unbufchan_isempty = (address) =>
-is_Unassigned(heap_get_child(address, 0))
-&& heap_get_child(address, 1) === -1 ;
-
-const heap_reset_Unbufchan = (address) => {
-heap_set_child(address, 0, Unassigned);
-heap_set_child(address , 1, -1);
-}
-
-const is_Unbufchan = (address) => heap_get_tag(address) === Unbufchan_tag;
-*/
 // Channel
 // [1 byte tag, 4 bytes unused,
 //  2 bytes #children, 1 byte unused]
@@ -368,9 +307,19 @@ const heap_allocate_Chan = (size) => {
     return address;
 };
 const is_Chan = (address) => heap_get_tag(address) === Chan_tag;
-const heap_allocate_Buffer = (size) => {
-    const address = heap_allocate(Internal_tag, size + 1);
+const heap_allocate_Buffer = (size) => heap_allocate(Internal_tag, size + 1);
+// Mutex
+// [1 byte tag, 4 bytes unused,
+//  2 bytes #children, 1 byte unused]
+// followed by the value if mutex is locked (value = 0) or free (1) and
+// by the address to a queue that stores all the waiting goroutines
+const heap_allocate_Mutex = (mutexState = 1, queue_address = heap_allocate_Queue()) => {
+    const address = heap_allocate(Mutex_tag, 3);
+    heap_set(address + 1, mutexState);
+    heap_set(address + 2, queue_address);
+    return address;
 };
+const is_Mutex = (address) => heap_get_tag(address) === Mutex_tag;
 // environment frame
 // [1 byte tag, 4 bytes unused,
 //  2 bytes #children, 1 byte unused]
@@ -575,8 +524,38 @@ const builtin_object = {
         waitGroup_add(pos, delta);
     },
     Lock: () => {
+        const pos = address_to_JS_value(OS.pop());
+        const mutex_address = heap_get_Environment_value(E, pos);
+        if (!is_Mutex(mutex_address)) {
+            display(address_to_JS_value(mutex_address));
+            error("has to be mutex");
+        }
+        const mutex_state = heap_get(mutex_address + 1);
+        const queue_address = heap_get(mutex_address + 2);
+        if (mutex_state == 0) {
+            runningGoroutine.block();
+            heap_add_Elem_to_Queue(queue_address, runningGoroutine.id);
+        }
+        else {
+            // allocate new mutex to mimic the copy by value behavior of mutexes
+            heap_set_Environment_value(E, pos, heap_allocate_Mutex(0, queue_address));
+        }
     },
     Unlock: () => {
+        const pos = address_to_JS_value(OS.pop());
+        const mutex_address = heap_get_Environment_value(E, pos);
+        if (!is_Mutex(mutex_address))
+            error("has to be mutex");
+        const mutex_state = heap_get(mutex_address + 1);
+        const queue_address = heap_get(mutex_address + 2);
+        if (!heap_isEmpty_Queue(queue_address)) {
+            // hand mutex over to the next one in the queue
+            const id = heap_pop_Elem_from_Queue(queue_address);
+            activeGoroutines[id].unblock();
+        }
+        else {
+            heap_set_Environment_value(E, pos, heap_allocate_Mutex(1, queue_address));
+        }
     },
     get_time: () => JS_value_to_address(get_time()),
     error: () => error(address_to_JS_value(OS.pop())),
@@ -866,6 +845,7 @@ const microcode = {
         const qcount = heap_get(address + 1);
         const dataqsiz = heap_get(address + 2);
         const buffer_addr = heap_get(address + 3);
+        const sendx = heap_get(address + 4);
         const recvx = heap_get(address + 5);
         const recvq_addr = heap_get(address + 6);
         const sendq_addr = heap_get(address + 7);
@@ -879,7 +859,7 @@ const microcode = {
             // If buffer is size 0, receive value directly from sender.
             if (dataqsiz == 0) {
                 OS.push(send_val);
-                display("rec1.1");
+                //display("rec1.1")
             }
             // Otherwise, receive from head of queue
             // and add sender's value to the tail of the queue (both map to
@@ -889,11 +869,13 @@ const microcode = {
                 const elem_addr = buffer_addr + recvx + 1;
                 OS.push(heap_get(elem_addr));
                 heap_set(elem_addr, send_val);
+                heap_set(address + 4, sendx + 1 == dataqsiz ? 0 : sendx + 1);
+                heap_set(address + 5, recvx + 1 == dataqsiz ? 0 : recvx + 1);
             }
         }
         // Receive directly from queue.
         else if (qcount > 0) {
-            //display("rec2")
+            // display("rec2")
             // buffer_addr + receive index + 1 for buffer tag
             OS.push(heap_get(buffer_addr + recvx + 1));
             heap_set(address + 5, recvx + 1 == dataqsiz ? 0 : recvx + 1);
@@ -977,6 +959,7 @@ const microcode = {
 };
 function contextSwitch() {
     runningGoroutine = activeGoroutines[runQueue.shift()];
+    display(runningGoroutine.id, "running Routine: ");
     OS = runningGoroutine.OS;
     PC = runningGoroutine.PC;
     E = runningGoroutine.E;
@@ -984,15 +967,15 @@ function contextSwitch() {
 }
 function run(instrs) {
     numberOfRoutinesCreated = 0;
-    const main_Thread = new Goroutine(numberOfRoutinesCreated++, [], 0, global_environment, []);
+    const main_Goroutine = new Goroutine(numberOfRoutinesCreated++, [], 0, global_environment, []);
     stringPool = {};
     runQueue = [0];
-    activeGoroutines = { 0: main_Thread };
+    activeGoroutines = { 0: main_Goroutine };
     contextSwitch();
-    print_code(instrs);
+    // print_code(instrs)
     while (!(instrs[PC].tag === "DONE")) {
         //display(runningGoroutine.id)
-        for (let i = 0; i < 20; i++) {
+        for (let i = 0; i < 100; i++) {
             if (instrs[PC].tag === "DONE") {
                 //display(OS, "\nfinal operands:           ")
                 //print_OS()
@@ -1027,9 +1010,8 @@ function run(instrs) {
             error("all goroutines are blocked");
         }
     }
-    //display(OS, "\nfinal operands:           ")
-    //print_OS()
-    // //return address_to_JS_value(peek(OS, 0));
+    // display(OS, "\nfinal operands:           ")
+    // print_OS()
 }
 exports.run = run;
 // debugging

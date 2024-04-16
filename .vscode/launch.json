@@ -4,12 +4,18 @@
         {
             "type": "node",
             "request": "launch",
+            "name": "run",
+            "program": "${workspaceFolder}/dist/main.js",
+        },
+        {
+            "type": "node",
+            "request": "launch",
             "name": "compile and run",
             "skipFiles": [
                 "<node_internals>/**"
             ],
             "preLaunchTask": "Compile TypeScript",
-            "program": "${workspaceFolder}/dist/parser/main.js",
+            "program": "${workspaceFolder}/dist/main.js",
             "outFiles": [
                 "${workspaceFolder}/**/*.js"
             ]

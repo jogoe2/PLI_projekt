@@ -32,7 +32,6 @@
 
 parser grammar GoParserUntyped;
 
-// Insert here @header for C++ parser.
 
 options {
     tokenVocab = GoLexer;
@@ -59,8 +58,6 @@ identifierList
 expressionList
     : expression (COMMA expression)*
     ;
-
-// Function declarations
 
 functionDecl
     : FUNC IDENTIFIER parameters block
@@ -164,11 +161,7 @@ primaryExpr
 operand
     : functionLit
     | IDENTIFIER
-    //| chanelOp
     ;
-
-/*chanelOp
-    :CHAN IDENTIFIER;*/
 
 basicLit
     : BOOL_LIT
