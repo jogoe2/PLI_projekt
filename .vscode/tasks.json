@@ -12,11 +12,11 @@
             }
         },
         {
-            "label": "Run test.js",
+            "label": "Run main.js",
             "type": "shell",
             "command": "node",
             "args": [
-                "${workspaceFolder}/**/test.js"
+                "${workspaceFolder}/**/main.js"
             ],
             "dependsOn": "Compile TypeScript",
             "problemMatcher": []

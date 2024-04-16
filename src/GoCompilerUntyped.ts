@@ -1,7 +1,7 @@
 import { AssignmentContext, BasicLitContext, BlockContext, ConstDeclContext, DeclarationContext, EosContext, ExpressionContext, ExpressionStmtContext, ForStmtContext, FunctionDeclContext, FunctionLitContext, GoStmtContext, IfStmtContext, OperandContext, PrimaryExprContext, ReturnStmtContext, SendStmtContext, SimpleStmtContext, SourceFileContext, StatementContext, StatementListContext, VarDeclContext } from "./parser/GoParserUntyped";
 import { ParseTree, RuleNode, TerminalNode } from "antlr4";
 import GoParsUntypedVisitor from "./parser/GoParserUntypedVisitor";
-import { global_compile_environment, compile_time_environment_extend, compile_time_environment_position } from "./HelperFunctions";
+import { global_compile_environment, compile_time_environment_extend, compile_time_environment_position } from "./GoExecuter";
 // @ts-ignore
 import { display } from 'sicp';
 
@@ -109,7 +109,7 @@ export default class GoCompiler extends GoParsUntypedVisitor<void> {
         }
         // if used with correct syntax, then we need a dummy value that cna be poped if the function has no return statement
         // type checking prevents that the null is assigned to a value
-        instrs[wc++] = { tag: "LDC", val: null };
+        instrs[wc++] = { tag: "LDC", val: 100000 };
         instrs[wc++] = { tag: 'RESET' }
     }
 
@@ -170,7 +170,7 @@ export default class GoCompiler extends GoParsUntypedVisitor<void> {
                 instrs[wc++] = {tag: 'LD', sym: ctx.IDENTIFIER().getText(), pos: compile_time_environment_position(ce, ctx.IDENTIFIER().getText())}
                 instrs[wc++] = {tag: 'LD', sym: ("*" + ctx.IDENTIFIER().getText()), pos: null}
             }else {
-                instrs[wc++] = {tag: 'REF', sym: ctx.IDENTIFIER().getText(), pos: compile_time_environment_position(ce, ctx.IDENTIFIER().getText())} 
+                instrs[wc++] = {tag: 'LDC', type: "pointer", val: compile_time_environment_position(ce, ctx.IDENTIFIER().getText())} 
             }
         }else if(ctx._ari_unary_op != undefined || ctx.EXCLAMATION()!= undefined) {
             this.visit(ctx.getChild(1))
@@ -261,20 +261,29 @@ export default class GoCompiler extends GoParsUntypedVisitor<void> {
     }
 
     public visitVarDecl = (ctx: VarDeclContext) => {
-        this.visit(ctx.expression())
-
-        this.assign(ctx.IDENTIFIER())
+        if(ctx.expression() != undefined){
+            this.visit(ctx.expression())
+            this.assign(ctx.IDENTIFIER())
+        } else {
+            this.assignDefault(ctx.IDENTIFIER(), ctx.type_().IDENTIFIER().getText())
+        }
     }
 
     private assign(sym: TerminalNode, isDeref = false){
         instrs[wc++] = {
             tag: "ASSIGN",
             pos: compile_time_environment_position(ce, sym.getText()),
-            isDeref: isDeref
+            isDeref: isDeref,
         };
     }
 
-    
+    private assignDefault(sym: TerminalNode, type: string){
+        instrs[wc++] = {
+            tag: "ASSIGN",
+            pos: compile_time_environment_position(ce, sym.getText()),
+            type: type
+        };
+    }
 
     private scan = (ctx: (StatementListContext| null)) => {
         var locals: string[] = []

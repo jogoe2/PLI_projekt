@@ -9,16 +9,10 @@
                 "<node_internals>/**"
             ],
             "preLaunchTask": "Compile TypeScript",
-            "program": "${workspaceFolder}/dist/parser/test.js",
+            "program": "${workspaceFolder}/dist/parser/main.js",
             "outFiles": [
                 "${workspaceFolder}/**/*.js"
             ]
-        },
-        {
-            "type": "node-terminal",
-            "name": "JavaScript Debug Terminal",
-            "request": "launch",
-            "cwd": "${workspaceFolder}"
         }
     ]
 }

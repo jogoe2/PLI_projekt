@@ -13,7 +13,6 @@ Object.entries(require("sicp")).forEach(
 // add values destructively to the end of
 // given array; return the array
 const push = (array, ...items) => {
-	// fixed by Liew Zhao Wei, see Discussion 5
 	for (let item of items) {
 		array.push(item);
 	}
@@ -155,7 +154,13 @@ const Frame_tag = 9;
 const Environment_tag = 10;
 const Pair_tag = 11;
 const Builtin_tag = 12;
-const String_tag = 13; // ADDED CHANGE
+const String_tag = 13;
+const Goroutineframe_tag = 14;
+const Pointer_tag = 15;
+const Chan_tag = 16;
+const WaitGroup_tag = 17;
+const Internal_tag = 18;
+
 
 // Record<string, tuple(number, string)> where the key is the hash of the string
 // and the value is a tuple of the address of the string and the string itself
@@ -185,7 +190,6 @@ const is_Unassigned = (address) => heap_get_tag(address) === Unassigned_tag;
 const Undefined = heap_allocate(Undefined_tag, 1);
 const is_Undefined = (address) => heap_get_tag(address) === Undefined_tag;
 
-// ADDED CHANGE
 // strings:
 // [1 byte tag, 4 byte hash to stringPool,
 // 2 bytes #children, 1 byte unused]
@@ -304,6 +308,166 @@ const heap_get_Callframe_pc = (address) =>
 
 const is_Callframe = (address) => heap_get_tag(address) === Callframe_tag;
 
+// goroutine frame
+// [1 byte tag, 1 byte unused, 2 bytes pc,
+//  1 byte unused, 2 bytes #children, 1 byte unused]
+// followed by the address of env
+
+const heap_allocate_Goroutineframe = (env, pc) => {
+	const address = heap_allocate(Goroutineframe_tag, 2);
+	heap_set_2_bytes_at_offset(address, 2, pc);
+	heap_set(address + 1, env);
+	return address;
+};
+
+const heap_get_Goroutineframe_environment = (address) => heap_get_child(address, 0);
+
+const is_Goroutineframe = (address) => heap_get_tag(address) === Goroutineframe_tag;
+
+// WaitGroup
+// [1 byte tag, 4 bytes unused,
+//  2 bytes #children, 1 byte unused]
+// followed by counter and
+// by the address to a queue that stores all the waiting goroutines
+// In the official go impl this is done with a semaphore implementaion(weighted tress) for better performance
+const heap_allocate_WaitGroup = (counter = 0, queue_address = heap_allocate_Queue()) => {
+	const address = heap_allocate(WaitGroup_tag, 3);
+	heap_set(address + 1, counter);
+	heap_set(address + 2, queue_address);
+	return address;
+}
+
+const is_WaitGroup = (address) => heap_get_tag(address) === WaitGroup_tag;
+
+
+// Queue
+// [1 byte tag, 4 bytes unused,
+//  2 bytes #children, 1 byte unused]
+// followed by address to head and address to tail
+// used to store goroutine ids
+const heap_allocate_Queue = () => {
+	const address = heap_allocate(Internal_tag, 3);
+	heap_set(address + 1, -1);
+	heap_set(address + 2, -1);
+	return address;
+}
+
+const heap_add_Elem_to_Queue = (queue_address, number) => {
+	const el_address = heap_allocate(Internal_tag, 3);
+	heap_set(el_address + 1, -1);
+	heap_set(el_address + 2, number);
+	//display(number, "number: ")
+	//display(el_address + 2, "eladdress: ")
+	if(heap_get(queue_address + 1) == -1) {
+		//display("hi2")
+		heap_set(queue_address + 1, el_address);
+	}else {
+		const last_el_address = heap_get(queue_address + 1);
+		heap_set(last_el_address + 1, el_address);
+	}
+	heap_set(queue_address + 2, el_address);
+}
+/*
+const heap_rem_Elem_from_Queue = (queue_address, number) => {
+	var el_address1 = heap_get(queue_address+1)
+	if(el_address1 === -1) return false;
+	if(heap_get(el_address1+2) === number){
+		const next_address =  heap_get(el_address1+1);
+		heap_set(queue_address+1, next_address);
+		if(next_address === -1) {
+			heap_set(queue_address+2, -1);
+		}
+		return true;
+	}
+	var el_address2 = heap_get(el_address1+1)
+
+	while(el_address2 != -1 && heap_get(el_address2+2) != number){
+		el_address1 = el_address2;
+		el_address2 = heap_get(el_address2+1);
+	}
+	if(heap_get(el_address2+2) == number) {
+		const next_address =  heap_get(el_address2+1);
+		heap_set(el_address1+1, next_address);
+		if(next_address === -1){
+			heap_set(queue_address+2, el_address1);
+		}
+		return true
+	}
+	return false;
+}
+*/
+const heap_pop_Elem_from_Queue = (queue_address) => {
+	var el_address = heap_get(queue_address+1)
+	if(el_address === -1) error("queue is empty")
+	const next_address =  heap_get(el_address+1);
+
+	heap_set(queue_address+1, next_address);
+	if(next_address === -1) {
+		heap_set(queue_address+2, -1);
+	}
+	//display(el_address + 2, "eladdress: ")
+	//display(heap_get(el_address+2));
+	return heap_get(el_address+2);
+}
+
+const heap_isEmpty_Queue = (queue_address) => 
+	(heap_get(queue_address+1) === -1)
+
+	/*
+// unbuffered channel
+// [1 byte tag, 4 bytes unused,
+//  2 bytes #children, 1 byte unused]
+// followed by the address of the buffer element and the id of the sender that put the element in the buffer.
+const heap_allocate_Unbufchan = () => {
+	const address = heap_allocate(Unbufchan_tag, 3);
+	heap_set(address + 1, Unassigned);
+	heap_set(address + 2, -1);
+	return address;
+}
+
+const heap_get_Unbufchan_element = (address) => heap_get_child(address, 0);
+
+const heap_get_Unbufchan_senderid = (address) => heap_get_child(address, 1);
+
+const heap_set_Unbufchan_element = (address, el_address, id) => {
+	heap_set(address + 1, el_address);
+	heap_set(address + 2, id);
+}
+
+const heap_Unbufchan_isempty = (address) => 
+	is_Unassigned(heap_get_child(address, 0)) 
+	&& heap_get_child(address, 1) === -1 ;
+
+const heap_reset_Unbufchan = (address) => {
+	heap_set_child(address, 0, Unassigned);
+	heap_set_child(address , 1, -1);
+}
+
+const is_Unbufchan = (address) => heap_get_tag(address) === Unbufchan_tag;
+*/
+// Channel
+// [1 byte tag, 4 bytes unused,
+//  2 bytes #children, 1 byte unused]
+// followed by the address of the buffer element and the id of the sender that put the element in the buffer.
+const heap_allocate_Chan = (size) => {
+	const address = heap_allocate(Chan_tag, 8);
+	const buffer_address = size == 0 ? -1 : heap_allocate_Buffer(size);
+	heap_set(address + 1, 0); 						// total data in the queue
+	heap_set(address + 2, size);					// size of the circular queue
+	heap_set(address + 3, buffer_address);			// points to an array
+	heap_set(address + 4, 0); 						// send index
+	heap_set(address + 5, 0); 						// receive index
+	heap_set(address + 6, heap_allocate_Queue());	// list of recv waiters
+	heap_set(address + 7, heap_allocate_Queue()); 	// list of send waiters
+	return address;
+}
+
+const is_Chan = (address) => heap_get_tag(address) === Chan_tag;
+
+const heap_allocate_Buffer = (size) => {
+	const address = heap_allocate(Internal_tag, size+1);
+}
+
 // environment frame
 // [1 byte tag, 4 bytes unused,
 //  2 bytes #children, 1 byte unused]
@@ -311,6 +475,8 @@ const is_Callframe = (address) => heap_get_tag(address) === Callframe_tag;
 
 const heap_allocate_Frame = (number_of_values) =>
 	heap_allocate(Frame_tag, number_of_values + 1);
+
+
 
 const heap_Frame_display = (address) => {
 	display("", "Frame:");
@@ -393,6 +559,19 @@ const heap_allocate_Pair = (hd, tl) => {
 
 const is_Pair = (address) => heap_get_tag(address) === Pair_tag;
 
+// pointer
+// [1 byte tag, 4 bytes unused,
+//  2 bytes #children, 1 byte unused]
+// followed by head and tail addresses, one word each
+const heap_allocate_Pointer = (hd, tl) => {
+	const pointer_address = heap_allocate(Pointer_tag, 3);
+	heap_set_child(pointer_address, 0, hd);
+	heap_set_child(pointer_address, 1, tl);
+	return pointer_address;
+};
+
+const is_Pointer = (address) => heap_get_tag(address) === Pointer_tag;
+
 // number
 // [1 byte tag, 4 bytes unused,
 //  2 bytes #children, 1 byte unused]
@@ -426,15 +605,19 @@ const address_to_JS_value = (x) =>
 		? null
 		: is_String(x) // ADDED CHANGE
 		? heap_get_string(x) // ADDED CHANGE
-		: is_Pair(x)
+		: is_Pair(x) || is_Pointer(x)
 		? [
 				address_to_JS_value(heap_get_child(x, 0)),
-				address_to_JS_value(heap_get_child(x, 1)),
+				address_to_JS_value(heap_get_child(x, 1))
 		  ]
+		: is_WaitGroup(x)
+		? "<WaitGroup>"
 		: is_Closure(x)
 		? "<closure>"
 		: is_Builtin(x)
 		? "<builtin>"
+		: is_Unbufchan(x)
+		? "<unbuf chan>"
 		: "unknown word tag: " + word_to_string(x);
 
 const JS_value_to_address = (x) =>
@@ -469,7 +652,11 @@ const JS_value_to_address = (x) =>
 // of a given symbol x
 export const compile_time_environment_position = (env, x) => {
 	let frame_index = env.length;
-	while (value_index(env[--frame_index], x) === -1) {}
+	while (value_index(env[--frame_index], x) === -1) {
+		if(frame_index === 0) {
+			error(`symbol ${x} not found`)
+		}
+	}
 	return [frame_index, value_index(env[frame_index], x)];
 };
 
@@ -485,10 +672,40 @@ const value_index = (frame, x) => {
 // to save the creation of an intermediate
 // argument array
 const builtin_object = {
-	display: () => {
+	Println: () => {
 		const address = OS.pop();
 		display(address_to_JS_value(address));
 		return address;
+	},
+	make: () => {
+		const buffer_length = address_to_JS_value(OS.pop());
+		return heap_allocate_Chan(buffer_length);
+	},
+	Wait: () => {
+		const pos = address_to_JS_value(OS.pop());
+		const waitGroup_address = heap_get_Environment_value(E, pos);
+		if (!is_WaitGroup(waitGroup_address)) error("has to be a WaitGroup");
+		const counter = heap_get(waitGroup_address+1);
+		if(counter > 0){
+			const sem_address = heap_get(waitGroup_address+2)
+			runtime_Semacquire(sem_address)
+		}
+	},
+	Add: () => {
+		const delta = address_to_JS_value(OS.pop());
+		const pos = address_to_JS_value(OS.pop());
+		waitGroup_add(pos, delta)
+	},
+	Done: () => {
+		const delta = -1;
+		const pos = address_to_JS_value(OS.pop());
+		waitGroup_add(pos, delta)
+	},
+	Lock: () => {
+
+	},
+	Unlock: () => {
+
 	},
 	get_time: () => JS_value_to_address(get_time()),
 	error: () => error(address_to_JS_value(OS.pop())),
@@ -519,6 +736,36 @@ const builtin_object = {
 		heap_set_child(p, 1, val);
 	},
 };
+
+// helper function for waitgroup add and done
+function waitGroup_add(pos, delta) {
+		const waitGroup_address = heap_get_Environment_value(E, pos);
+		if (!is_WaitGroup(waitGroup_address)) error("has to be a WaitGroup");
+		const old_counter = heap_get(waitGroup_address+1);
+		//by always allocating a new WaitGroup we make shure that waitgroups are passed by value
+		const sem_address = heap_get(waitGroup_address+2)
+		if(old_counter+delta < 0) {
+			error("sync: WaitGroup counter has to be non negative")
+		}
+		if(old_counter+delta == 0){
+			heap_set_Environment_value(E, pos, heap_allocate_WaitGroup(old_counter+delta, sem_address));
+			runtime_Semrelease(sem_address);
+		}else {
+			heap_set_Environment_value(E, pos, heap_allocate_WaitGroup(old_counter+delta, sem_address));
+		}
+}
+
+const runtime_Semrelease = (sem_address) => {
+	while(!heap_isEmpty_Queue(sem_address)) {
+		const id = heap_pop_Elem_from_Queue(sem_address);
+		activeGoroutines[id].unblock()
+	}
+}
+
+const runtime_Semacquire = (sem_address) => {
+	runningGoroutine.block()
+	heap_add_Elem_to_Queue(sem_address, runningGoroutine.id);
+}
 
 const primitive_object = {};
 const builtin_array = [];
@@ -575,8 +822,8 @@ const binop_microcode = {
 	"<=": (x, y) => x <= y,
 	">=": (x, y) => x >= y,
 	">": (x, y) => x > y,
-	"===": (x, y) => x === y,
-	"!==": (x, y) => x !== y,
+	"==": (x, y) => x === y,
+	"!=": (x, y) => x !== y,
 };
 
 // v2 is popped before v1
@@ -586,7 +833,8 @@ const apply_binop = (op, v2, v1) =>
 	);
 
 const unop_microcode = {
-	"-unary": (x) => -x,
+	"-": (x) => -x,
+	"+": (x) => x,
 	"!": (x) => !x,
 };
 
@@ -595,8 +843,10 @@ const apply_unop = (op, v) =>
 
 const apply_builtin = (builtin_id) => {
 	const result = builtin_array[builtin_id]();
-	OS.pop(); // pop fun
-	push(OS, result);
+	if(!runningGoroutine.isBlocked()){
+		OS.pop(); // pop fun
+		push(OS, result);
+	}
 };
 
 // creating global runtime environment
@@ -621,6 +871,50 @@ const global_environment = heap_Environment_extend(
 	heap_empty_Environment,
 );
 
+class Goroutine {
+	id;
+    OS; // JS array (stack) of words (Addresses,
+        //        word-encoded literals, numbers)
+    PC; // JS number
+    E;  // heap Address
+    RTS;// JS array (stack) of Addresses
+	finished;
+	blocked;
+
+	constructor(id, OS, PC, E, RTS){
+		this.id = id;
+		this.OS = OS;
+		this.PC = PC;
+		this.E = E;
+		this.RTS = RTS;
+		this.finished = false;
+		this.blocked = false;
+	}
+
+	update(OS, PC, E, RTS){
+		this.OS = OS;
+		this.PC = PC;
+		this.E = E;
+		this.RTS = RTS;
+		return this;
+	}
+
+	block() {
+		this.blocked = true;
+	}
+
+	unblock() {
+		if(this.blocked = true) {
+			this.blocked = false;
+			runQueue.push(this.id);
+		}
+	}
+
+	isBlocked() {
+		return this.blocked;
+	}
+}
+
 /* *******
  * machine
  * *******/
@@ -631,10 +925,25 @@ let OS; // JS array (stack) of words (Addresses,
 let PC; // JS number
 let E; // heap Address
 let RTS; // JS array (stack) of Addresses
+let runQueue; // TODO description
+let activeGoroutines
+let runningGoroutine;     // TODO description
+let numberOfRoutinesCreated;
 HEAP; // (declared above already)
 
 const microcode = {
-	LDC: (instr) => push(OS, JS_value_to_address(instr.val)),
+	LDC: (instr) => {
+		if(instr.type==undefined) {
+			push(OS, JS_value_to_address(instr.val))
+		}else if(instr.type=="pointer"){
+			const [frame_index, value_index] = instr.val;
+			const address  = heap_allocate_Pointer(
+									JS_value_to_address(frame_index),
+									JS_value_to_address(value_index),
+							)
+			push(OS, address);
+		}
+	},
 	UNOP: (instr) => push(OS, apply_unop(instr.sym, OS.pop())),
 	BINOP: (instr) => push(OS, apply_binop(instr.sym, OS.pop(), OS.pop())),
 	POP: (instr) => OS.pop(),
@@ -650,11 +959,112 @@ const microcode = {
 	},
 	EXIT_SCOPE: (instr) => (E = heap_get_Blockframe_environment(RTS.pop())),
 	LD: (instr) => {
-		const val = heap_get_Environment_value(E, instr.pos);
+		const pos = instr.pos?? address_to_JS_value(OS.pop()); // if pos is null, the are dereferencing a variable and the position is already on the OS.
+		const val = heap_get_Environment_value(E, pos);
 		if (is_Unassigned(val)) error("access of unassigned variable");
 		push(OS, val);
 	},
-	ASSIGN: (instr) => heap_set_Environment_value(E, instr.pos, OS.pop()),
+	ASSIGN: (instr) => {
+		if(instr.type == undefined){
+			if (instr.isDeref) {
+				const pointer_address = heap_get_Environment_value(E, instr.pos);
+				if (!is_Pointer(pointer_address)) error("is not a pointer");
+				heap_set_Environment_value(E, address_to_JS_value(pointer_address), OS.pop())
+			}else{
+				heap_set_Environment_value(E, instr.pos, OS.pop())
+			}
+		}else if(instr.type == "waitGroup") {
+			heap_set_Environment_value(E, instr.pos, heap_allocate_WaitGroup());
+		}else if(instr.type == "mutex") {
+			heap_set_Environment_value(E, instr.pos, heap_allocate_Mutex());
+		} else if(instr.type == "int"){
+			heap_set_Environment_value(E, instr.pos, heap_allocate_Number(0));
+		}else if(instr.type == "string"){
+			heap_set_Environment_value(E, instr.pos, heap_allocate_String(""));
+		}else {
+			error("not supported default type")
+		}
+	},
+	SEND: (instr) => {
+		const address = heap_get_Environment_value(E, instr.pos);
+		if(!is_Chan(address)) error ("can only send to a channel");
+		const qcount = heap_get(address+1);
+		const dataqsiz = heap_get(address+2);
+		const buffer_addr =  heap_get(address+3);
+		const sendx = heap_get(address+4);
+		const recvq_addr = heap_get(address+6);
+		const sendq_addr = heap_get(address+7);
+		// Found a waiting receiver. We pass the value we want to send
+		// directly to the receiver, bypassing the channel buffer (if any). 
+		if(!heap_isEmpty_Queue(recvq_addr)){
+			const rec_id = heap_pop_Elem_from_Queue(recvq_addr);
+			const rec_goroutine  = activeGoroutines[rec_id];
+			//display(rec_id, "rec_id: ")
+			rec_goroutine.OS.push(OS.pop());
+			rec_goroutine.unblock();
+		}
+		// Space is available in the channel buffer. Enqueue the element to send.
+		else if(qcount < dataqsiz){
+			
+			// buffer_addr + send index + 1 for buffer tag
+			heap_set(buffer_addr + sendx + 1 , OS.pop());
+			heap_set(address+4, sendx+1 == dataqsiz ? 0: sendx+1);
+			heap_set(address+1, qcount+1);
+			//display( qcount+1, "qcount")
+		}
+		// Block on the channel. Some receiver will complete our operation for us.
+		else {
+			heap_add_Elem_to_Queue(sendq_addr, runningGoroutine.id);
+			runningGoroutine.block();
+		}
+	},
+	REC: (instr) => {
+		//display("rec0")
+		const address = heap_get_Environment_value(E, instr.pos);
+		if(!is_Chan(address)) error ("can only receive from a channel");
+		const qcount = heap_get(address+1);
+		const dataqsiz = heap_get(address+2);
+		const buffer_addr =  heap_get(address+3);
+		const recvx = heap_get(address+5);
+		const recvq_addr = heap_get(address+6);
+		const sendq_addr = heap_get(address+7);
+		// Just found waiting sender.
+		if(!heap_isEmpty_Queue(sendq_addr)){
+			//display("rec1")
+			const send_id = heap_pop_Elem_from_Queue(sendq_addr);
+			const send_goroutine = activeGoroutines[send_id]
+			const send_val = send_goroutine.OS.pop();
+			send_goroutine.unblock();
+			// If buffer is size 0, receive value directly from sender.
+			if(dataqsiz == 0){
+				OS.push(send_val);
+				display("rec1.1")
+			}
+			// Otherwise, receive from head of queue
+			// and add sender's value to the tail of the queue (both map to
+			// the same buffer slot because the queue is full). 
+			else {
+				//display("rec1.2")
+				const elem_addr = buffer_addr + recvx + 1;
+				OS.push(heap_get(elem_addr));
+				heap_set(elem_addr, send_val);
+			}
+		}
+		// Receive directly from queue.
+		else if(qcount > 0){
+			//display("rec2")
+			// buffer_addr + receive index + 1 for buffer tag
+			OS.push(heap_get(buffer_addr + recvx + 1));
+			heap_set(address+5, recvx+1 == dataqsiz ? 0: recvx+1);
+			heap_set(address+1, qcount-1);
+		}
+		// no sender available: block on this channel.
+		else {
+			//display("rec3")
+			heap_add_Elem_to_Queue(recvq_addr, runningGoroutine.id);
+			runningGoroutine.block();
+		}
+	},
 	LDF: (instr) => {
 		const closure_address = heap_allocate_Closure(instr.arity, instr.addr, E);
 		push(OS, closure_address);
@@ -676,6 +1086,31 @@ const microcode = {
 			heap_get_Closure_environment(fun),
 		);
 		PC = heap_get_Closure_pc(fun);
+	},
+	GO: (instr) => {
+		const arity = instr.arity;
+		const fun = peek(OS, arity);
+		if (is_Builtin(fun)) {
+			display("Warning: No goroutine will be created when you call a builtin function.")
+			return apply_builtin_goroutine(heap_get_Builtin_id(fun));
+		}
+		const frame_address = heap_allocate_Frame(arity);
+		for (let i = arity - 1; i >= 0; i--) {
+			heap_set_child(frame_address, i, OS.pop());
+		}
+		OS.pop(); // pop fun
+		const OSnew = [...OS];
+		const RTSnew = [...RTS];
+		push(RTSnew, heap_allocate_Goroutineframe(E, PC));
+		const Enew = heap_Environment_extend(
+			frame_address,
+			heap_get_Closure_environment(fun),
+		);
+		const PCnew = heap_get_Closure_pc(fun);
+		
+		const id = numberOfRoutinesCreated++;
+		activeGoroutines[id] = new Goroutine(id, OSnew, PCnew, Enew, RTSnew);
+		runQueue.push(id);
 	},
 	TAIL_CALL: (instr) => {
 		const arity = instr.arity;
@@ -703,31 +1138,70 @@ const microcode = {
 			// ...until top frame is a call frame
 			PC = heap_get_Callframe_pc(top_frame);
 			E = heap_get_Callframe_environment(top_frame);
+		} else if(is_Goroutineframe(top_frame)){
+			runningGoroutine.finished = true;
 		}
 	},
 };
 
-export function run(instrs) {
-	OS = [];
-	PC = 0;
-	E = global_environment;
-	RTS = [];
-	stringPool = {}; // ADDED CHANGE
-    
-	//print_code(instrs)
-	while (PC < instrs.length && !(instrs[PC].tag === "DONE")) {
-		//heap_display()
-		//display(PC, "PC: ")
-		//display(instrs[PC].tag, "instr: ")
-		//print_OS("\noperands:            ");
-		//print_RTS("\nRTS:            ");
-		const instr = instrs[PC++];
-		microcode[instr.tag](instr);
-        //display(PC, "next instruction: ")
+function contextSwitch(){
+	runningGoroutine = activeGoroutines[runQueue.shift()];
+	OS = runningGoroutine.OS;
+	PC = runningGoroutine.PC;
+	E = runningGoroutine.E;
+	RTS = runningGoroutine.RTS;
 	}
-	display(OS, "\nfinal operands:           ")
-	print_OS()
-	//return address_to_JS_value(peek(OS, 0));
+
+export function run(instrs) {
+	numberOfRoutinesCreated = 0;
+	const main_Thread = new Goroutine(numberOfRoutinesCreated++, [], 0, global_environment, []);
+	
+	
+	stringPool = {};
+
+	runQueue = [0];
+	activeGoroutines = {0: main_Thread};
+	contextSwitch()
+	print_code(instrs)
+	while (!(instrs[PC].tag === "DONE")) {
+		//display(runningGoroutine.id)
+		for (let i = 0; i < 20; i++) {
+			if(instrs[PC].tag === "DONE") {
+				//display(OS, "\nfinal operands:           ")
+				//print_OS()
+				return;
+			}else if(runningGoroutine.finished || runningGoroutine.isBlocked()){
+				break;
+			}
+			//heap_display()
+			//display(PC, "PC: ")
+			// display(instrs[PC].tag, "instr: ")
+			//print_OS("\noperands:            ");
+			//print_RTS("\nRTS:            ");
+			const instr = instrs[PC++];
+			microcode[instr.tag](instr);
+			//display(PC, "next instruction: ")
+		}
+
+		if(runQueue.length > 0) {
+			const id = runningGoroutine.id
+			if(!runningGoroutine.finished) {
+				activeGoroutines[id] = runningGoroutine.update([...OS], PC, E, [...RTS]);
+				if(!runningGoroutine.isBlocked()) {
+					runQueue.push(id)
+				}
+			}else {
+				delete activeGoroutines[id];
+			}
+			contextSwitch()
+		}else if(runningGoroutine.finished || runningGoroutine.isBlocked()){
+			error("all goroutines are blocked")
+		}
+	}
+
+	//display(OS, "\nfinal operands:           ")
+	//print_OS()
+	// //return address_to_JS_value(peek(OS, 0));
 }
 
 // debugging

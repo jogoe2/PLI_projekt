@@ -10,6 +10,7 @@ import { IdentifierListContext } from "./GoParserUntyped";
 import { ExpressionListContext } from "./GoParserUntyped";
 import { FunctionDeclContext } from "./GoParserUntyped";
 import { VarDeclContext } from "./GoParserUntyped";
+import { TypeContext } from "./GoParserUntyped";
 import { BlockContext } from "./GoParserUntyped";
 import { StatementListContext } from "./GoParserUntyped";
 import { StatementContext } from "./GoParserUntyped";
@@ -83,6 +84,12 @@ export default class GoParserUntypedVisitor<Result> extends ParseTreeVisitor<Res
 	 * @return the visitor result
 	 */
 	visitVarDecl?: (ctx: VarDeclContext) => Result;
+	/**
+	 * Visit a parse tree produced by `GoParserUntyped.type`.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	visitType?: (ctx: TypeContext) => Result;
 	/**
 	 * Visit a parse tree produced by `GoParserUntyped.block`.
 	 * @param ctx the parse tree

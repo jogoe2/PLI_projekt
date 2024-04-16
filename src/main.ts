@@ -1,39 +1,30 @@
 import { CommonTokenStream, CharStream } from 'antlr4';
-import GoLexer from './GoLexer.js';
-import GoParser from './GoParserUntyped.js';
-import GoCompiler from '../GoCompilerUntyped.js';
-import {run} from '../HelperFunctions.js'
+import GoLexer from './parser/GoLexer.js';
+import GoParser from './parser/GoParserUntyped.js';
+import GoCompiler from './GoCompilerUntyped.js';
+import {run} from './GoExecuter.js'
 
 async function parseFile(filePath: string) {
     try {
         const fileContent = `
         func main() {
-            var ch = make(0);
-            Println("");
+            var ch = make(1);
             go func () {
-                Println("1");
-                Println("1");
-                Println("1");
-                Println("1");
-                Println("1");
-                Println("1");
-                ch <- 100;
-                Println("2");
-                Println("2");
-                Println("2");
-                Println("2");
-                Println("2");
-                Println("2");
+                Println("0.5");
                 Println(<-ch);
-                Println("2");
-                Println("2");
+                Println(<-ch);
             }()
-            Println("");
-            Println("");
-            Println(<-ch);
-            Println(<-ch);
-            Println("");
-        }
+            Println("1");
+            ch <- 112;
+            Println("2");
+            ch <- 113;
+            Println("3");
+            ch <- 114;
+            Println("4");
+            Println("3.5");
+            //ch <- 111;
+            Println("4");
+    }
         `; //= await fs.readFile(filePath, { encoding: 'utf8' });
         const input = new CharStream(fileContent);
         const lexer = new GoLexer(input);

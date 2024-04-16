@@ -16,40 +16,29 @@ const antlr4_1 = require("antlr4");
 const GoLexer_js_1 = __importDefault(require("./GoLexer.js"));
 const GoParserUntyped_js_1 = __importDefault(require("./GoParserUntyped.js"));
 const GoCompilerUntyped_js_1 = __importDefault(require("../GoCompilerUntyped.js"));
-const HelperFunctions_js_1 = require("../HelperFunctions.js");
+const GoExecuter_js_1 = require("../GoExecuter.js");
 function parseFile(filePath) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const fileContent = `
         func main() {
-            var ch = make(0);
-            Println("");
+            var ch = make(1);
             go func () {
-                Println("1");
-                Println("1");
-                Println("1");
-                Println("1");
-                Println("1");
-                Println("1");
-                ch <- 100;
-                Println("2");
-                Println("2");
-                Println("2");
-                Println("2");
-                Println("2");
-                Println("2");
+                Println("0.5");
                 Println(<-ch);
-                Println("2");
-                Println("2");
-
-
+                Println(<-ch);
             }()
-            Println("");
-            Println("");
-            Println(<-ch);
-            Println(<-ch);
-            Println("");
-        }
+            Println("1");
+            ch <- 112;
+            Println("2");
+            ch <- 113;
+            Println("3");
+            ch <- 114;
+            Println("4");
+            Println("3.5");
+            //ch <- 111;
+            Println("4");
+    }
         `; //= await fs.readFile(filePath, { encoding: 'utf8' });
             const input = new antlr4_1.CharStream(fileContent);
             const lexer = new GoLexer_js_1.default(input);
@@ -61,7 +50,7 @@ function parseFile(filePath) {
             const compiler = new GoCompilerUntyped_js_1.default();
             const instrs = compiler.compile_program(tree);
             instrs.push(({ tag: "DONE" }));
-            (0, HelperFunctions_js_1.run)(instrs);
+            (0, GoExecuter_js_1.run)(instrs);
         }
         catch (error) {
             console.error('Error processing file:', error);

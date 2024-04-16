@@ -67,7 +67,11 @@ functionDecl
     ;
 
 varDecl
-    : VAR IDENTIFIER ASSIGN expression
+    : VAR IDENTIFIER (type | (ASSIGN expression))
+    ;
+
+type
+    : IDENTIFIER
     ;
 
 block
