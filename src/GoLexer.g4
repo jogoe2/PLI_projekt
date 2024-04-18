@@ -4,6 +4,7 @@
  Copyright (c) 2019 Ivan Kochurkin, kvanttt@gmail.com, Positive Technologies
  Copyright (c) 2019 Dmitry Rassadin, flipparassa@gmail.com, Positive Technologies
  Copyright (c) 2021 Martin Mirchev, mirchevmartin2203@gmail.com
+Copyright (c)  2024 Johannes Goettle
  All rights reserved.
 
  Redistribution and use in source and binary forms, with or without

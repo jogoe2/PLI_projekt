@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const GoParserUntypedVisitor_1 = __importDefault(require("./parser/GoParserUntypedVisitor"));
-const GoExecuter_1 = require("./GoExecuter");
+const GoVM_1 = require("./GoVM");
 let wc = 0;
 // instrs: instruction array
 let instrs = [];
@@ -16,14 +16,14 @@ class GoCompiler extends GoParserUntypedVisitor_1.default {
             const locals = ctx.declaration_list().map(decl => this.scanDeclCtx(decl)).concat(ctx.functionDecl_list().map(decl => decl.IDENTIFIER().getText()));
             instrs[wc++] = { tag: 'ENTER_SCOPE', num: locals.length };
             const ce_old = ce;
-            ce = (0, GoExecuter_1.compile_time_environment_extend)(locals, ce);
+            ce = (0, GoVM_1.compile_time_environment_extend)(locals, ce);
             for (let i = 0; i < ctx.getChildCount(); i++) {
                 this.visit(ctx.getChild(i));
             }
             instrs[wc++] = {
                 tag: "LD",
                 sym: "main",
-                pos: (0, GoExecuter_1.compile_time_environment_position)(ce, "main")
+                pos: (0, GoVM_1.compile_time_environment_position)(ce, "main")
             };
             instrs[wc++] = { tag: "CALL", arity: 0 };
             ce = ce_old;
@@ -53,7 +53,7 @@ class GoCompiler extends GoParserUntypedVisitor_1.default {
                 const locals = this.scan(ctx.statementList());
                 instrs[wc++] = { tag: 'ENTER_SCOPE', num: locals.length };
                 const ce_old = ce;
-                ce = (0, GoExecuter_1.compile_time_environment_extend)(locals, ce);
+                ce = (0, GoVM_1.compile_time_environment_extend)(locals, ce);
                 this.visit(ctx.statementList());
                 ce = ce_old;
                 instrs[wc++] = { tag: 'EXIT_SCOPE' };
@@ -64,13 +64,12 @@ class GoCompiler extends GoParserUntypedVisitor_1.default {
             instrs[wc++] = { tag: 'ENTER_SCOPE', num: locals.length };
             if (ctx.statementList() != null) {
                 const ce_old = ce;
-                ce = (0, GoExecuter_1.compile_time_environment_extend)(locals, ce);
+                ce = (0, GoVM_1.compile_time_environment_extend)(locals, ce);
                 this.visit(ctx.statementList());
                 ce = ce_old;
             }
-            // if used with correct syntax, then we need a dummy value that cna be poped if the function has no return statement
-            // type checking prevents that the null is assigned to a value
-            instrs[wc++] = { tag: "LDC", val: 100000 };
+            // if used with correct syntax, then we need a dummy value that can be poped if the function has no return statement
+            instrs[wc++] = { tag: "LDC", val: null };
             instrs[wc++] = { tag: 'RESET' };
         };
         this.visitStatementList = (ctx) => {
@@ -96,7 +95,7 @@ class GoCompiler extends GoParserUntypedVisitor_1.default {
             this.visit(ctx.expression());
             instrs[wc++] = {
                 tag: "SEND",
-                pos: (0, GoExecuter_1.compile_time_environment_position)(ce, ctx.IDENTIFIER().getText())
+                pos: (0, GoVM_1.compile_time_environment_position)(ce, ctx.IDENTIFIER().getText())
             };
         };
         this.visitReturnStmt = (ctx) => {
@@ -119,16 +118,16 @@ class GoCompiler extends GoParserUntypedVisitor_1.default {
             else if (ctx.RECEIVE()) {
                 instrs[wc++] = {
                     tag: "REC",
-                    pos: (0, GoExecuter_1.compile_time_environment_position)(ce, ctx.IDENTIFIER().getText()),
+                    pos: (0, GoVM_1.compile_time_environment_position)(ce, ctx.IDENTIFIER().getText()),
                 };
             }
             else if (ctx._pointer_op != undefined) {
                 if (ctx.STAR() != undefined) {
-                    instrs[wc++] = { tag: 'LD', sym: ctx.IDENTIFIER().getText(), pos: (0, GoExecuter_1.compile_time_environment_position)(ce, ctx.IDENTIFIER().getText()) };
+                    instrs[wc++] = { tag: 'LD', sym: ctx.IDENTIFIER().getText(), pos: (0, GoVM_1.compile_time_environment_position)(ce, ctx.IDENTIFIER().getText()) };
                     instrs[wc++] = { tag: 'LD', sym: ("*" + ctx.IDENTIFIER().getText()), pos: null };
                 }
                 else {
-                    instrs[wc++] = { tag: 'LDC', type: "pointer", val: (0, GoExecuter_1.compile_time_environment_position)(ce, ctx.IDENTIFIER().getText()) };
+                    instrs[wc++] = { tag: 'LDC', type: "pointer", val: (0, GoVM_1.compile_time_environment_position)(ce, ctx.IDENTIFIER().getText()) };
                 }
             }
             else if (ctx._ari_unary_op != undefined || ctx.EXCLAMATION() != undefined) {
@@ -164,7 +163,7 @@ class GoCompiler extends GoParserUntypedVisitor_1.default {
                 instrs[wc++] = {
                     tag: "LD",
                     sym: ctx.IDENTIFIER().getText(),
-                    pos: (0, GoExecuter_1.compile_time_environment_position)(ce, ctx.IDENTIFIER().getText()),
+                    pos: (0, GoVM_1.compile_time_environment_position)(ce, ctx.IDENTIFIER().getText()),
                 };
             }
             else if (ctx.functionLit() != null) {
@@ -245,7 +244,7 @@ class GoCompiler extends GoParserUntypedVisitor_1.default {
     compile_program(program) {
         wc = 0;
         instrs = [];
-        ce = GoExecuter_1.global_compile_environment;
+        ce = GoVM_1.global_compile_environment;
         this.visit(program);
         return instrs;
     }
@@ -261,7 +260,7 @@ class GoCompiler extends GoParserUntypedVisitor_1.default {
         const goto_instruction = { tag: 'GOTO', addr: -1 }; // addr is not defined yet
         instrs[wc++] = goto_instruction;
         const ce_old = ce;
-        ce = (0, GoExecuter_1.compile_time_environment_extend)(prms, ce);
+        ce = (0, GoVM_1.compile_time_environment_extend)(prms, ce);
         this.visitFunctionBlock(ctx.block());
         ce = ce_old;
         goto_instruction.addr = wc;
@@ -269,14 +268,14 @@ class GoCompiler extends GoParserUntypedVisitor_1.default {
     assign(sym, isDeref = false) {
         instrs[wc++] = {
             tag: "ASSIGN",
-            pos: (0, GoExecuter_1.compile_time_environment_position)(ce, sym.getText()),
+            pos: (0, GoVM_1.compile_time_environment_position)(ce, sym.getText()),
             isDeref: isDeref,
         };
     }
     assignDefault(sym, type) {
         instrs[wc++] = {
             tag: "ASSIGN",
-            pos: (0, GoExecuter_1.compile_time_environment_position)(ce, sym.getText()),
+            pos: (0, GoVM_1.compile_time_environment_position)(ce, sym.getText()),
             type: type
         };
     }

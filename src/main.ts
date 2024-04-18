@@ -2,7 +2,7 @@ import { CommonTokenStream, CharStream } from 'antlr4';
 import GoLexer from './parser/GoLexer.js';
 import GoParser from './parser/GoParserUntyped.js';
 import GoCompiler from './GoCompilerUntyped.js';
-import {run} from './GoExecuter.js'
+import {run} from './GoVM.js'
 
 async function parse_compile_run(fileconten: string) {
     try {

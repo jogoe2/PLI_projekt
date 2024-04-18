@@ -1,7 +1,7 @@
 import { AssignmentContext, BasicLitContext, BlockContext, ConstDeclContext, DeclarationContext, EosContext, ExpressionContext, ExpressionStmtContext, ForStmtContext, FunctionDeclContext, FunctionLitContext, GoStmtContext, IfStmtContext, OperandContext, PrimaryExprContext, ReturnStmtContext, SendStmtContext, SimpleStmtContext, SourceFileContext, StatementContext, StatementListContext, VarDeclContext } from "./parser/GoParserUntyped";
 import { ParseTree, RuleNode, TerminalNode } from "antlr4";
 import GoParsUntypedVisitor from "./parser/GoParserUntypedVisitor";
-import { global_compile_environment, compile_time_environment_extend, compile_time_environment_position } from "./GoExecuter";
+import { global_compile_environment, compile_time_environment_extend, compile_time_environment_position } from "./GoVM";
 // @ts-ignore
 import { display } from 'sicp';
 
@@ -107,9 +107,8 @@ export default class GoCompiler extends GoParsUntypedVisitor<void> {
             this.visit(ctx.statementList())
             ce = ce_old;
         }
-        // if used with correct syntax, then we need a dummy value that cna be poped if the function has no return statement
-        // type checking prevents that the null is assigned to a value
-        instrs[wc++] = { tag: "LDC", val: 100000 };
+        // if used with correct syntax, then we need a dummy value that can be poped if the function has no return statement
+        instrs[wc++] = { tag: "LDC", val: null };
         instrs[wc++] = { tag: 'RESET' }
     }
 

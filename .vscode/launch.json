@@ -11,8 +11,9 @@
             "type": "node",
             "request": "launch",
             "name": "compile and run",
-            "skipFiles": [
-                "<node_internals>/**"
+            "resolveSourceMapLocations": [
+                "${workspaceFolder}/",
+                "!/node_modules/**"
             ],
             "preLaunchTask": "Compile TypeScript",
             "program": "${workspaceFolder}/dist/main.js",

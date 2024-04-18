@@ -1080,8 +1080,7 @@ const microcode = {
 			heap_set_child(frame_address, i, OS.pop());
 		}
 		OS.pop(); // pop fun
-		const OSnew = [...OS];
-		const RTSnew = [...RTS];
+		const RTSnew = [];
 		push(RTSnew, heap_allocate_Goroutineframe(E, PC));
 		const Enew = heap_Environment_extend(
 			frame_address,
@@ -1090,7 +1089,7 @@ const microcode = {
 		const PCnew = heap_get_Closure_pc(fun);
 		
 		const id = numberOfRoutinesCreated++;
-		activeGoroutines[id] = new Goroutine(id, OSnew, PCnew, Enew, RTSnew);
+		activeGoroutines[id] = new Goroutine(id, [], PCnew, Enew, RTSnew);
 		runQueue.push(id);
 	},
 	TAIL_CALL: (instr) => {
@@ -1143,7 +1142,7 @@ export function run(instrs) {
 	runQueue = [0];
 	activeGoroutines = {0: main_Goroutine};
 	contextSwitch()
-	// print_code(instrs)
+	print_code(instrs)
 	while (!(instrs[PC].tag === "DONE")) {
 		//display(runningGoroutine.id)
 		for (let i = 0; i < 100; i++) {

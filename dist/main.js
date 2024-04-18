@@ -16,7 +16,7 @@ const antlr4_1 = require("antlr4");
 const GoLexer_js_1 = __importDefault(require("./parser/GoLexer.js"));
 const GoParserUntyped_js_1 = __importDefault(require("./parser/GoParserUntyped.js"));
 const GoCompilerUntyped_js_1 = __importDefault(require("./GoCompilerUntyped.js"));
-const GoExecuter_js_1 = require("./GoExecuter.js");
+const GoVM_js_1 = require("./GoVM.js");
 function parse_compile_run(fileconten) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -29,7 +29,7 @@ function parse_compile_run(fileconten) {
             const compiler = new GoCompilerUntyped_js_1.default();
             const instrs = compiler.compile_program(tree);
             instrs.push(({ tag: "DONE" }));
-            (0, GoExecuter_js_1.run)(instrs);
+            (0, GoVM_js_1.run)(instrs);
         }
         catch (error) {
             console.error(error);
