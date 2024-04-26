@@ -666,6 +666,8 @@ const binop_microcode = {
     ">": (x, y) => x > y,
     "==": (x, y) => x === y,
     "!=": (x, y) => x !== y,
+    "&&": (x, y) => x && y,
+    "||": (x, y) => x || y,
 };
 // v2 is popped before v1
 const apply_binop = (op, v2, v1) => JS_value_to_address(binop_microcode[op](address_to_JS_value(v1), address_to_JS_value(v2)));
@@ -971,7 +973,7 @@ function run(instrs) {
     runQueue = [0];
     activeGoroutines = { 0: main_Goroutine };
     contextSwitch();
-    print_code(instrs);
+    //print_code(instrs)
     while (!(instrs[PC].tag === "DONE")) {
         //display(runningGoroutine.id)
         for (let i = 0; i < 100; i++) {

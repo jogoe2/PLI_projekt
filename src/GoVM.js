@@ -802,6 +802,8 @@ const binop_microcode = {
 	">": (x, y) => x > y,
 	"==": (x, y) => x === y,
 	"!=": (x, y) => x !== y,
+	"&&": (x, y) => x && y,
+	"||": (x, y) => x || y,
 };
 
 // v2 is popped before v1
@@ -1142,7 +1144,7 @@ export function run(instrs) {
 	runQueue = [0];
 	activeGoroutines = {0: main_Goroutine};
 	contextSwitch()
-	print_code(instrs)
+	//print_code(instrs)
 	while (!(instrs[PC].tag === "DONE")) {
 		//display(runningGoroutine.id)
 		for (let i = 0; i < 100; i++) {

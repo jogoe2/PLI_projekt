@@ -36,8 +36,110 @@ function parse_compile_run(fileconten) {
         }
     });
 }
-const test1_Filecontent = `
+//some sequencial programs
+const test0_Filecontent = ` 
     func main() {
+        Println("test0:")
+
+        var x = 1;
+        Println(x);
+        const y = x > 5 && 3 < 6;
+        Println(y);
+        Println("test" + "0");
+    }
+`;
+parse_compile_run(test0_Filecontent);
+const test1_Filecontent = ` 
+    func main() {
+        Println("test1:")
+
+        var x = 1;
+        if x > 1 {
+            Println("err")
+        } else {
+            Println(x)
+        }
+        
+    }
+`;
+parse_compile_run(test1_Filecontent);
+const test2_Filecontent = ` 
+    func main() {
+        Println("test2:")
+
+        var x = 1;
+        for x < 10 {
+            Println(x);
+            x = x + 1;
+        }
+        
+    }
+`;
+parse_compile_run(test2_Filecontent);
+const test3_Filecontent = ` 
+    func main() {
+        Println("test3:")
+
+        var x = func (y) {
+            return y + 1;
+        }
+        const z = x(2);
+        Println(z)
+    }
+`;
+parse_compile_run(test3_Filecontent);
+const test4_Filecontent = ` 
+var k = 5;
+
+func addk (x) {
+    return x + k;
+}
+
+func main() {
+    Println("test4:")
+
+    Println(addk(4))
+}
+`;
+parse_compile_run(test4_Filecontent);
+// parallel program
+const test5_Filecontent = ` 
+var k = 5;
+
+func addk (x) {
+    Println(x + k);
+}
+
+func main() {
+    Println("test5:")
+
+    go addk(4);
+    Println("main")
+}
+`;
+parse_compile_run(test5_Filecontent);
+const test6_Filecontent = ` 
+func main() {
+    Println("test6:")
+
+    var wg waitGroup;
+    Add(&wg, 2)
+    go func (x) {
+        Println(x)
+        go func (y) {
+            Println(y+1)
+            Done(&wg);
+        }(x)
+        Done(&wg);
+    }(0)
+    Wait(&wg)
+}
+`;
+parse_compile_run(test6_Filecontent);
+const test7_Filecontent = `
+    func main() {
+        Println("test7:")
+
         var mut mutex;
         Println("0");
         Lock(&mut)
@@ -62,9 +164,11 @@ const test1_Filecontent = `
         Unlock(&mut);
     }
 `;
-//parse_compile_run(test1_Filecontent);
-const test2_Filecontent = `
+parse_compile_run(test7_Filecontent);
+const test8_Filecontent = `
     func main() {
+        Println("test8:")
+
         var ch = make(1);
         go func () {
             Println("1");
@@ -82,9 +186,11 @@ const test2_Filecontent = `
         Println("6");
     }
 `;
-parse_compile_run(test2_Filecontent);
-const test3_Filecontent = `
+parse_compile_run(test8_Filecontent);
+const test9_Filecontent = `
     func main() {
+        Println("test9:")
+
         var wg waitGroup;
         Add(&wg, 2)
         go func () {
@@ -97,4 +203,4 @@ const test3_Filecontent = `
         Println("1");
     }
 `;
-//parse_compile_run(test3_Filecontent);
+parse_compile_run(test9_Filecontent);
